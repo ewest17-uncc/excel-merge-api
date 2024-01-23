@@ -1,0 +1,5 @@
+xlsxwriter==
+pandas
+googletrans
+flask
+flask_cors
