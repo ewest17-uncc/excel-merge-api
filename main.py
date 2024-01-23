@@ -54,6 +54,10 @@ def merge_and_translate_excel_files(files, translation_service='google'):
     # Write the translated dataframe to a new Excel file
     return combined_df
 
+@app.route('/test', methods=['GET'])
+def test():
+    return 'Test Successful', 200
+
 @app.route('/merge_excel', methods=['POST'])
 def merge_excel_api():
     try:
