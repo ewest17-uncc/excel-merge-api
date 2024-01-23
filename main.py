@@ -27,8 +27,7 @@ def translate_to_russian(text, service='google'):
         translater.set_key(api_key)
         translater.set_from_lang('en')
         translater.set_to_lang('ru')
-        return 'Done!'
-        # return translater.translate()
+        return translater.translate()
     else:
         raise ValueError("Invalid translation service. Use 'google' or 'yandex'.")
 
