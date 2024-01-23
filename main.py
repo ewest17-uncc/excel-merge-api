@@ -1,7 +1,7 @@
 import pandas as pd
 from googletrans import Translator
 from yandex.Translater import Translater
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 import os
 from io import BytesIO
 from flask_cors import CORS, cross_origin
@@ -52,6 +52,10 @@ def merge_and_translate_excel_files(files, translation_service='google'):
 
     # Write the translated dataframe to a new Excel file
     return combined_df
+
+@app.route('/')
+def home():
+    return render_template('index.html')
 
 @app.route('/test', methods=['GET'])
 def test():
