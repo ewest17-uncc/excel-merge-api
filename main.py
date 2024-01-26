@@ -8,6 +8,7 @@ from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
 CORS(app, support_credentials=True)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 def translate_to_russian(text, service='google'):
     if service == 'google':
@@ -54,14 +55,17 @@ def merge_and_translate_excel_files(files, translation_service='google'):
     return combined_df
 
 @app.route('/')
+@cross_origin()
 def home():
     return render_template('index.html')
 
 @app.route('/test', methods=['GET'])
+@cross_origin()
 def test():
     return 'Test Successful', 200
 
 @app.route('/merge_excel', methods=['POST'])
+@cross_origin()
 def merge_excel_api():
     try:
         files = request.files
