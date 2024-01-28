@@ -28,11 +28,12 @@ def translate_to_russian(text, service='google'):
         translater.set_key(api_key)
         translater.set_from_lang('en')
         translater.set_to_lang('ru')
-        return translater.translate()
+        # return translater.translate()
+        return 'Placeholder'
     else:
         raise ValueError("Invalid translation service. Use 'google' or 'yandex'.")
 
-def merge_and_translate_excel_files(files, translation_service='google'):
+def merge_and_translate_excel_files(files, translation_service='google', selected_indicator=''):
     dfs = []
     for key in files.keys():
         # Read the relevant data from the file, skipping the first 4 rows
@@ -49,7 +50,9 @@ def merge_and_translate_excel_files(files, translation_service='google'):
 
     # Translate the "CAS Index Name" column to Russian (API CALL FOR EACH LINE)
     combined_df['CAS Index Name (Russian)'] = combined_df['CAS Index Name'].apply(lambda x: translate_to_russian(x, translation_service))
-    combined_df = combined_df[['CAS Index Name (Russian)', 'CAS Index Name', 'CAS Registry Number']]
+    combined_df['Indicator'] = selected_indicator
+    combined_df = combined_df.drop(columns=['CAS Index Name'])
+    combined_df = combined_df[['CAS Index Name (Russian)', 'CAS Registry Number', 'Indicator']]
 
     # Write the translated dataframe to a new Excel file
     return combined_df
@@ -70,15 +73,25 @@ def merge_excel_api():
     try:
         files = request.files
         translation_service = os.environ['TRANSLATION_SERVICE']
+        selected_indicator = request.form.get('selectedIndicator', '')
+
+        print('FILES: ', files)
+        print('selected_indicator: ', selected_indicator)
 
         # Perform the merge and translation
-        result_df = merge_and_translate_excel_files(files, translation_service=translation_service)
+        result_df = merge_and_translate_excel_files(files, translation_service=translation_service, selected_indicator=selected_indicator)
         print(result_df)
 
         # Save the result to a BytesIO object
         output_buffer = BytesIO()
         with pd.ExcelWriter(output_buffer, engine='xlsxwriter') as writer:
             result_df.to_excel(writer, index=False, sheet_name='Sheet1')
+            workbook = writer.book
+            worksheet = writer.sheets['Sheet1']
+
+            for i, col in enumerate(result_df.columns):
+                max_len = max(result_df[col].astype(str).apply(len).max(), len(col)) + 2
+                worksheet.set_column(i, i, max_len)
 
         output_buffer.seek(0)
 
@@ -94,5 +107,5 @@ def merge_excel_api():
         return "Merge Failed", 400
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))
     app.run(debug=True, host='0.0.0.0', port=port)
