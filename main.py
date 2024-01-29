@@ -21,9 +21,9 @@ def translate_to_russian(text, service='google'):
             print('FAILED WITH ERROR: ', e)
     elif service == 'yandex':
         translater = Translater()
-        print('CURRENTLY TRANSLATING: ', text, ' INTO RUSSIAN')
+        # print('CURRENTLY TRANSLATING: ', text, ' INTO RUSSIAN')
         api_key = os.environ['YANDEX_API_KEY']
-        print('API KEY: ', api_key)
+        # print('API KEY: ', api_key)
         translater.set_text(text)
         translater.set_key(api_key)
         translater.set_from_lang('en')
@@ -35,6 +35,8 @@ def translate_to_russian(text, service='google'):
 
 def merge_and_translate_excel_files(files, translation_service='google', selected_indicator=''):
     dfs = []
+    first_file_name = list(files.values())[0].filename
+
     for key in files.keys():
         # Read the relevant data from the file, skipping the first 4 rows
         df = pd.read_excel(files[key], skiprows=4, usecols=["CAS Registry Number", "CAS Index Name"])
@@ -55,7 +57,7 @@ def merge_and_translate_excel_files(files, translation_service='google', selecte
     combined_df = combined_df[['CAS Index Name (Russian)', 'CAS Registry Number', 'Indicator']]
 
     # Write the translated dataframe to a new Excel file
-    return combined_df
+    return combined_df, first_file_name
 
 @app.route('/')
 @cross_origin()
@@ -75,12 +77,8 @@ def merge_excel_api():
         translation_service = os.environ['TRANSLATION_SERVICE']
         selected_indicator = request.form.get('selectedIndicator', '')
 
-        print('FILES: ', files)
-        print('selected_indicator: ', selected_indicator)
-
         # Perform the merge and translation
-        result_df = merge_and_translate_excel_files(files, translation_service=translation_service, selected_indicator=selected_indicator)
-        print(result_df)
+        result_df, first_file_name = merge_and_translate_excel_files(files, translation_service=translation_service, selected_indicator=selected_indicator)
 
         # Save the result to a BytesIO object
         output_buffer = BytesIO()
@@ -95,12 +93,18 @@ def merge_excel_api():
 
         output_buffer.seek(0)
 
-        return send_file(
+        combined_file_name = f"{first_file_name.replace('.xlsx', '')}_combined.xlsx"
+
+        response = send_file(
             output_buffer,
-            download_name='merged_output.xlsx',
+            download_name=combined_file_name,
             as_attachment=True,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
+        response.headers["Access-Control-Expose-Headers"] = "Content-Disposition"
+        response.headers["Content-Disposition"] = f"attachment;filename={combined_file_name}"
+
+        return response
     except Exception as e:
         # return jsonify({'success': False, 'error_message': str(e)})
         print('ERROR: ', str(e))

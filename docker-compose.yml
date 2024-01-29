@@ -6,7 +6,7 @@ services:
     image: excel-merge-api
     build: ./
     volumes:
-      - ./src:/app/src
+      - ./:/app
     env_file:
     - .env
     ports:
