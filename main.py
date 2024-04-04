@@ -33,7 +33,7 @@ def translate_to_russian(text, service='google'):
     else:
         raise ValueError("Invalid translation service. Use 'google' or 'yandex'.")
 
-def merge_and_translate_excel_files(files, translation_service='google', selected_indicator=''):
+def merge_and_translate_excel_files(files, translation_service='google', selected_indicator='', vpr=''):
     dfs = []
     first_file_name = list(files.values())[0].filename
 
@@ -53,6 +53,7 @@ def merge_and_translate_excel_files(files, translation_service='google', selecte
     # Translate the "CAS Index Name" column to Russian (API CALL FOR EACH LINE)
     combined_df['CAS Index Name (Russian)'] = combined_df['CAS Index Name'].apply(lambda x: translate_to_russian(x, translation_service))
     combined_df['Indicator'] = selected_indicator
+    combined_df['ВПР'] = vpr
     combined_df = combined_df.drop(columns=['CAS Index Name'])
     combined_df = combined_df[['CAS Index Name (Russian)', 'CAS Registry Number', 'Indicator']]
 
@@ -83,9 +84,10 @@ def merge_excel_api():
         files = request.files
         translation_service = os.environ['TRANSLATION_SERVICE']
         selected_indicator = request.form.get('selectedIndicator', '')
+        vpr = request.form.get('VPR', '')
 
         # Perform the merge and translation
-        result_df, first_file_name = merge_and_translate_excel_files(files, translation_service=translation_service, selected_indicator=selected_indicator)
+        result_df, first_file_name = merge_and_translate_excel_files(files, translation_service=translation_service, selected_indicator=selected_indicator, vpr=vpr)
 
         # Save the result to a BytesIO object
         output_buffer = BytesIO()
