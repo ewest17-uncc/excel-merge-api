@@ -55,7 +55,7 @@ def merge_and_translate_excel_files(files, translation_service='google', selecte
     combined_df['Indicator'] = selected_indicator
     combined_df['ВПР'] = vpr
     combined_df = combined_df.drop(columns=['CAS Index Name'])
-    combined_df = combined_df[['CAS Index Name (Russian)', 'CAS Registry Number', 'Indicator']]
+    combined_df = combined_df[['CAS Index Name (Russian)', 'CAS Registry Number', 'Indicator', 'VPR']]
 
     # Write the translated dataframe to a new Excel file
     return combined_df, first_file_name
