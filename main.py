@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, send_file, render_template
 import os
 from io import BytesIO
 from flask_cors import CORS, cross_origin
+import zipfile
 
 app = Flask(__name__)
 CORS(app, support_credentials=True)
@@ -32,6 +33,27 @@ def translate_to_russian(text, service='google'):
         # return 'Placeholder'
     else:
         raise ValueError("Invalid translation service. Use 'google' or 'yandex'.")
+
+def process_files(files, translation_service='google', selected_indicator='', vpr=''):
+    dfs = []
+    names = []
+
+    for key, value in files.items():
+        # Read the relevant data from the file, skipping the first 4 rows
+        df = pd.read_excel(files[key], skiprows=4, usecols=["CAS Registry Number", "CAS Index Name"])
+        name = value.filename or "None"
+        # Append the dataframe to the list
+        dfs.append(df)
+        names.append(name)
+
+    dfs = list(map(lambda df: df.assign(**{'CAS Index Name (Russian)': df['CAS Index Name'].apply(lambda x: translate_to_russian(x, translation_service))}), dfs))
+    dfs = list(map(lambda df: df.assign(Indicator=selected_indicator), dfs))
+    dfs = list(map(lambda df: df.assign(ВПР=vpr), dfs))
+    dfs = list(map(lambda df: df[['CAS Index Name (Russian)', 'CAS Registry Number', 'Indicator', 'ВПР']], dfs))
+
+    return dfs, names
+
+    
 
 def merge_and_translate_excel_files(files, translation_service='google', selected_indicator='', vpr=''):
     dfs = []
@@ -76,6 +98,66 @@ def test():
 #   response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
 #   response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
 #   return response
+
+@app.route('/process_excel', methods=['POST'])
+@cross_origin()
+def process_excel_api():
+    try:
+        files = request.files
+        translation_service = os.environ['TRANSLATION_SERVICE']
+        selected_indicator = request.form.get('selectedIndicator', '')
+        vpr = request.form.get('VPR', '')
+
+        # Perform the merge and translation
+        dfs, filenames = process_files(files, translation_service=translation_service, selected_indicator=selected_indicator, vpr=vpr)
+
+        # Save the result to a BytesIO object
+        output_buffer = BytesIO()
+
+        zip_file = zipfile.ZipFile(output_buffer, "w", zipfile.ZIP_DEFLATED)
+
+        for df, filename in zip(dfs, filenames):
+            # # Create an Excel writer object
+            # excel_writer = pd.ExcelWriter(filename, engine='xlsxwriter')
+            # # Write the dataframe to the Excel file
+            # df.to_excel(excel_writer, index=False)
+            # excel_writer.close()
+            # # Add the Excel file to the zip archive with the corresponding filename
+
+            with pd.ExcelWriter(output_buffer, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Sheet1')
+                workbook = writer.book
+                worksheet = writer.sheets['Sheet1']
+
+                for i, col in enumerate(df.columns):
+                    max_len = max(df[col].astype(str).apply(len).max(), len(col)) + 2
+                    worksheet.set_column(i, i, max_len)
+                    
+            zip_file.writestr(f"modified_{filename}", output_buffer.getvalue())
+            
+        
+        zip_file.close()
+
+        # Rewind the BytesIO object to the beginning
+        output_buffer.seek(0)
+        
+        combined_file_name = "output_files.zip"
+
+        response = send_file(
+            output_buffer,
+            download_name=combined_file_name,
+            as_attachment=True,
+            mimetype='application/zip'
+        )
+        response.headers["Access-Control-Expose-Headers"] = "Content-Disposition"
+        response.headers["Content-Disposition"] = f"attachment;filename={combined_file_name}"
+
+        return response
+
+    except Exception as e:
+        # return jsonify({'success': False, 'error_message': str(e)})
+        print('ERROR: ', str(e))
+        return f"Merge Failed: {str(e)}", 400
 
 @app.route('/merge_excel', methods=['POST'])
 @cross_origin()
